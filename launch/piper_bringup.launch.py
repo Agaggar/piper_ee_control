@@ -8,6 +8,7 @@ from ament_index_python.packages import get_package_share_directory
 import os, subprocess
 import yaml
 from launch_param_builder import ParameterBuilder
+from launch.actions import TimerAction, OpaqueFunction
 
 import xacro
 
@@ -31,26 +32,60 @@ def load_file(package_name, file_path):
             return file.read()
     except EnvironmentError:  # parent of IOError, OSError *and* WindowsError where available
         return None
-
-def generate_launch_description():
+    
+def generate_launch_args():
+    gripper_arg = DeclareLaunchArgument(
+        'use_gripper',
+        default_value='false',
+        description='Whether to include gripper in the MoveIt configuration'
+    )
     moveit_arg = DeclareLaunchArgument(
         name='use_moveit',
         default_value='true',
         description='Enable MoveIt'
     )
+    launch_args = [gripper_arg, moveit_arg]
+    return launch_args
+
+def launch_setup(context):
     # ==========================================================================
     # Load Configurations
     # ==========================================================================
     piper_moveit_config_path = get_package_share_directory('piper_moveit_config')
+    # if use_gripper is false, load the no_gripper version of the xacro and configs
+    use_gripper = LaunchConfiguration('use_gripper').perform(context)
+    if use_gripper.lower() == 'false':
+        urdf_file = os.path.join(piper_moveit_config_path, 'config/no_gripper', 'piper.urdf.xacro')
+        srdf_file = load_file('piper_moveit_config', 'config/no_gripper/piper.srdf')
+        initial_positions_file = os.path.join(piper_moveit_config_path, "config/no_gripper", "initial_positions.yaml")
+        # Controller configuration
+        moveit_controllers = load_yaml('piper_moveit_config', 'config/no_gripper/moveit_controllers.yaml') # REAL controllers
+        controllers_yaml_path = os.path.join(piper_moveit_config_path, "config/no_gripper", "ros2_controllers.yaml")
+        # Kinematics configuration
+        kinematics_yaml = load_yaml('piper_moveit_config', 'config/no_gripper/kinematics.yaml')
+        joint_limits_yaml = load_yaml('piper_moveit_config', 'config/no_gripper/joint_limits.yaml')
+        # Planning configuration
+        ompl_planning_yaml = load_yaml('piper_moveit_config', 'config/no_gripper/ompl_planning.yaml')
+    else:
+        urdf_file = os.path.join(piper_moveit_config_path, 'config', 'piper.urdf.xacro')
+        srdf_file = load_file('piper_moveit_config', 'config/piper.srdf')
+        initial_positions_file = os.path.join(piper_moveit_config_path, "config", "initial_positions.yaml")
+        # Controller configuration
+        moveit_controllers = load_yaml('piper_moveit_config', 'config/moveit_controllers.yaml') # REAL controllers
+        controllers_yaml_path = os.path.join(piper_moveit_config_path, "config", "ros2_controllers.yaml")
+        # Kinematics configuration
+        kinematics_yaml = load_yaml('piper_moveit_config', 'config/kinematics.yaml')
+        joint_limits_yaml = load_yaml('piper_moveit_config', 'config/joint_limits.yaml')
+        # Planning configuration
+        ompl_planning_yaml = load_yaml('piper_moveit_config', 'config/ompl_planning.yaml')
     
     robot_description_config = xacro.process_file(
-        os.path.join(piper_moveit_config_path, 'config', 'piper.urdf.xacro'),
-        mappings={"initial_positions_file": os.path.join(piper_moveit_config_path, "config", "initial_positions.yaml")})
+        urdf_file,
+        mappings={"initial_positions_file": initial_positions_file})
     robot_description = {"robot_description": robot_description_config.toxml()}
-    kinematics_yaml = load_yaml('piper_moveit_config', 'config/kinematics.yaml')
     
     # Semantic description (SRDF)
-    robot_description_semantic = {'robot_description_semantic': load_file('piper_moveit_config', 'config/piper.srdf')}
+    robot_description_semantic = {'robot_description_semantic': srdf_file}
     # Planning configuration
     ompl_planning_pipeline_config = {
         "planning_pipelines": ["ompl"],
@@ -60,15 +95,9 @@ def generate_launch_description():
             "start_state_max_bounds_error": 0.1,
         },
     }
-    ompl_planning_yaml = load_yaml('piper_moveit_config', 'config/ompl_planning.yaml')
     ompl_planning_pipeline_config["ompl"].update(ompl_planning_yaml)
-    joint_limits_yaml = load_yaml('piper_moveit_config', 'config/joint_limits.yaml')
 
     # Controller configuration
-    moveit_controllers = load_yaml('piper_moveit_config', 'config/moveit_controllers.yaml')
-    controllers_yaml_path = os.path.join(piper_moveit_config_path, "config", "ros2_controllers.yaml")
-    # control nodes
-    controllers_yaml_path = os.path.join(piper_moveit_config_path, "config", "ros2_controllers.yaml")
     ros2_control_node = Node(
         package="controller_manager",
         executable="ros2_control_node",
@@ -182,6 +211,8 @@ def generate_launch_description():
         )
         .to_dict()
     )
+    if use_gripper.lower() == 'false':
+        servo_params['moveit_servo']['ee_frame_name'] = 'link6'
     servo_demo_node = TimerAction(
             period=2.0,
             actions=[
@@ -202,8 +233,7 @@ def generate_launch_description():
         executable="velocity_pub",
         output="screen",
     )
-    return LaunchDescription([
-        moveit_arg,
+    return [
         robot_state_publisher_node,
         ros2_control_node,
         *load_controllers,
@@ -212,4 +242,11 @@ def generate_launch_description():
         rviz_node,
         servo_demo_node,
         velocity_relmove,
-    ])
+    ]
+
+def generate_launch_description():
+    opfunc = OpaqueFunction(function=launch_setup)
+    launch_args = generate_launch_args()
+    ld = LaunchDescription(launch_args)
+    ld.add_action(opfunc)
+    return ld
