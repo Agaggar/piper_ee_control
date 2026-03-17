@@ -1,0 +1,6 @@
+<library path="cartesian_velocity_controller_plugin">
+  <class
+    name="cartesian_velocity_controller/CartesianVelocityController"
+    type="CartesianVelocityController"
+    base_class_type="controller_interface::ControllerInterface"/>
+</library>
