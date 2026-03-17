@@ -20,7 +20,10 @@ ros-$ROS_DISTRO-moveit-resources-panda-moveit-config \
 ros-$ROS_DISTRO-moveit-resources-panda-description \
 ros-$ROS_DISTRO-moveit-resources-fanuc-moveit-config \
 ros-$ROS_DISTRO-moveit-resources-fanuc-description \
-ros-$ROS_DISTRO-ros-testing
+ros-$ROS_DISTRO-ros-testing \
+ros-$ROS_DISTRO-eigen-stl-containers \
+ros-$ROS_DISTRO-geometric-shapes \
+ros-$ROS-DISTRO-launch-param-builder
 7. colcon build --event-handlers desktop_notification- status- --cmake-args -DCMAKE_BUILD_TYPE=Release
 8. source install/setup.bash
 9. add install path to ~/.bashrc
