@@ -19,6 +19,7 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(trajectory_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(moveit_core REQUIRED)
@@ -28,6 +29,10 @@ find_package(moveit_servo REQUIRED)
 find_package(control_msgs REQUIRED)
 find_package(controller_interface REQUIRED)
 find_package(pluginlib REQUIRED)
+find_package(kdl_parser REQUIRED)
+find_package(orocos_kdl REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(yaml-cpp REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
@@ -44,6 +49,8 @@ add_executable(ee_velocity_node src/ee_velocity_node.cpp)
 add_executable(servo_demo_node src/servo_demo.cpp)
 add_executable(velocity_pub src/velocity_pub.cpp)
 add_executable(keyboard_relmove src/keyboard_input.cpp)
+add_executable(get_jacobian_node src/get_jacobian.cpp)
+add_executable(jacobian_velctrl_node src/jacobian_velctrl.cpp)
 
 
 ament_target_dependencies(ee_velocity_node
@@ -84,6 +91,25 @@ ament_target_dependencies(keyboard_relmove
   geometry_msgs
 )
 
+ament_target_dependencies(get_jacobian_node
+  rclcpp
+  sensor_msgs
+  std_msgs
+  kdl_parser
+  orocos_kdl
+)
+
+ament_target_dependencies(jacobian_velctrl_node
+  rclcpp
+  geometry_msgs
+  trajectory_msgs
+  sensor_msgs
+  std_msgs
+  tf2_ros
+  kdl_parser
+  orocos_kdl
+)
+
 pluginlib_export_plugin_description_file(
   controller_interface
   config/plugin.xml)
@@ -92,11 +118,16 @@ target_link_libraries(ee_velocity_node Eigen3::Eigen)
 target_link_libraries(servo_demo_node Eigen3::Eigen)
 target_link_libraries(velocity_pub Eigen3::Eigen)
 target_link_libraries(keyboard_relmove Eigen3::Eigen)
+target_link_libraries(get_jacobian_node Eigen3::Eigen)
+target_link_libraries(jacobian_velctrl_node Eigen3::Eigen yaml-cpp)
 
 rosidl_target_interfaces(velocity_pub
   ${PROJECT_NAME} "rosidl_typesupport_cpp")
 
 rosidl_target_interfaces(keyboard_relmove
+  ${PROJECT_NAME} "rosidl_typesupport_cpp")
+
+rosidl_target_interfaces(jacobian_velctrl_node
   ${PROJECT_NAME} "rosidl_typesupport_cpp")
 
 # Install directories
@@ -106,7 +137,7 @@ install(DIRECTORY
   DESTINATION share/${PROJECT_NAME}
 )
 
-install(TARGETS ee_velocity_node servo_demo_node velocity_pub keyboard_relmove #
+install(TARGETS ee_velocity_node servo_demo_node velocity_pub keyboard_relmove get_jacobian_node jacobian_velctrl_node #
   DESTINATION lib/${PROJECT_NAME})
 
 if(BUILD_TESTING)

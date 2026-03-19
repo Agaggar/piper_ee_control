@@ -44,12 +44,40 @@ def generate_launch_args():
         default_value='true',
         description='Enable MoveIt'
     )
-    fake_hardware = DeclareLaunchArgument(
-        name='fake_hardware',
-        default_value='true',
-        description='Whether using real robot or not for topic remapping'
+    jacobian_base_link_arg = DeclareLaunchArgument(
+        name='jacobian_base_link',
+        default_value='base_link',
+        description='Base link for Jacobian chain'
     )
-    launch_args = [gripper_arg, moveit_arg, fake_hardware]
+    jacobian_ee_link_arg = DeclareLaunchArgument(
+        name='jacobian_ee_link',
+        default_value='link6',
+        description='End-effector link for Jacobian chain'
+    )
+    jacobian_joint_states_topic_arg = DeclareLaunchArgument(
+        name='jacobian_joint_states_topic',
+        default_value='/joint_states',
+        description='Joint states topic consumed by get_jacobian_node'
+    )
+    control_rate_arg = DeclareLaunchArgument(
+        name='control_rate_hz',
+        default_value='30.0',
+        description='Frequency for velocity ctrl (Hz)'
+    )
+    control_mode_arg = DeclareLaunchArgument(
+        name='control_mode',
+        default_value='position',
+        description='Jacobian output mode: position or velocity'
+    )
+    launch_args = [
+        gripper_arg,
+        moveit_arg,
+        jacobian_base_link_arg,
+        jacobian_ee_link_arg,
+        jacobian_joint_states_topic_arg,
+        control_rate_arg,
+        control_mode_arg,
+    ]
     return launch_args
 
 def launch_setup(context):
@@ -69,6 +97,7 @@ def launch_setup(context):
         # Kinematics configuration
         kinematics_yaml = load_yaml('piper_moveit_config', 'config/no_gripper/kinematics.yaml')
         joint_limits_yaml = load_yaml('piper_moveit_config', 'config/no_gripper/joint_limits.yaml')
+        joint_limits_yaml_path = os.path.join(piper_moveit_config_path, "config/no_gripper", "joint_limits.yaml")
         # Planning configuration
         ompl_planning_yaml = load_yaml('piper_moveit_config', 'config/no_gripper/ompl_planning.yaml')
     else:
@@ -81,6 +110,7 @@ def launch_setup(context):
         # Kinematics configuration
         kinematics_yaml = load_yaml('piper_moveit_config', 'config/kinematics.yaml')
         joint_limits_yaml = load_yaml('piper_moveit_config', 'config/joint_limits.yaml')
+        joint_limits_yaml_path = os.path.join(piper_moveit_config_path, "config", "joint_limits.yaml")
         # Planning configuration
         ompl_planning_yaml = load_yaml('piper_moveit_config', 'config/ompl_planning.yaml')
     
@@ -88,128 +118,11 @@ def launch_setup(context):
         urdf_file,
         mappings={"initial_positions_file": initial_positions_file})
     robot_description = {"robot_description": robot_description_config.toxml()}
-    
+    robot_description_kinematics = {"robot_description_kinematics": kinematics_yaml}
     # Semantic description (SRDF)
     robot_description_semantic = {'robot_description_semantic': srdf_file}
-    # Planning configuration
-    ompl_planning_pipeline_config = {
-        "planning_pipelines": ["ompl"],
-        "ompl": {
-            "planning_plugin": "ompl_interface/OMPLPlanner",
-            "request_adapters": """default_planner_request_adapters/AddTimeOptimalParameterization default_planner_request_adapters/FixWorkspaceBounds default_planner_request_adapters/FixStartStateBounds default_planner_request_adapters/FixStartStateCollision default_planner_request_adapters/FixStartStatePathConstraints""",
-            "start_state_max_bounds_error": 0.1,
-        },
-    }
-    ompl_planning_pipeline_config["ompl"].update(ompl_planning_yaml)
 
-    # Controller configuration
-    ros2_control_node = Node(
-        package="controller_manager",
-        executable="ros2_control_node",
-        parameters=[
-            robot_description,
-            controllers_yaml_path
-        ],
-        output="screen",
-    )
-    load_controllers = []
-    controllers = ["joint_state_broadcaster", "arm_controller"]
-    if use_gripper.lower() == 'true':
-        controllers.append("gripper_controller")  #  "arm_velocity_controller"
-    for controller in controllers:
-        load_controllers += [
-            TimerAction(
-            period=1.0,
-            actions=[
-                Node(
-                    package="controller_manager",
-                    executable="spawner.py",
-                    arguments=[
-                        controller,
-                        "--controller-manager",
-                        "/controller_manager"
-                    ],
-                )
-            ]
-        )
-        ]
-    robot_state_publisher_node = Node(
-        package='robot_state_publisher',
-        executable='robot_state_publisher',
-        name='robot_state_publisher',
-        output='screen',
-        parameters=[robot_description]
-    )
-    joint_state_publisher_node = Node(
-        package='joint_state_publisher',
-        executable='joint_state_publisher', 
-        name='joint_state_publisher',
-        output='screen',    
-        parameters=[{"publish_rate": 200}]
-    )
-    joint_state_publisher_gui = Node(
-        package='joint_state_publisher_gui',
-        executable='joint_state_publisher_gui',
-        name='joint_state_publisher_gui',
-        output='screen',
-    )
-    # A node to publish world -> base_link transform
-    static_tf = Node(
-        package="tf2_ros",
-        executable="static_transform_publisher",
-        name="static_transform_publisher",
-        output="log",
-        arguments=["0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "world", "base_link"],
-    )
-
-    # ==========================================================================
-    # MoveIt Move Group Node
-    # ==========================================================================
-    ompl_planning_pipeline_config = {
-        'move_group': {
-            'planning_plugin': 'ompl_interface/OMPLPlanner',
-            'request_adapters': 'default_planner_request_adapters/AddTimeOptimalParameterization default_planner_request_adapters/FixWorkspaceBounds default_planner_request_adapters/FixStartStateBounds default_planner_request_adapters/FixStartStateCollision default_planner_request_adapters/FixStartStatePathConstraints',
-            'start_state_max_bounds_error': 0.1,
-        }
-    }
-    ompl_planning_pipeline_config['move_group'].update(ompl_planning_yaml)
-    
-    trajectory_execution = {
-        'moveit_manage_controllers': False,
-        'trajectory_execution.allowed_execution_duration_scaling': 1.2,
-        'trajectory_execution.allowed_goal_duration_margin': 0.5,
-        'trajectory_execution.allowed_start_tolerance': 0.01,
-    }
-    
-    planning_scene_monitor = {
-        'publish_planning_scene': True,
-        'publish_geometry_updates': True,
-        'publish_state_updates': True,
-        'publish_transforms_updates': True,
-    }
-    
-    move_group_node = Node(
-        package='moveit_ros_move_group',
-        executable='move_group',
-        name='move_group',
-        output='screen',
-        parameters=[
-            robot_description,
-            robot_description_semantic,
-            {'robot_description_kinematics': kinematics_yaml},
-            {'robot_description_planning': joint_limits_yaml},
-            ompl_planning_pipeline_config,
-            trajectory_execution,
-            {'moveit_controller_manager': 'moveit_simple_controller_manager/MoveItSimpleControllerManager'},
-            {'moveit_simple_controller_manager': moveit_controllers.get('moveit_simple_controller_manager', {})},
-            planning_scene_monitor,
-        ],
-        condition=LaunchConfigurationEquals('use_moveit', 'true')
-    )
-    rviz_config_file = os.path.join(piper_moveit_config_path, 'rviz', 'moveit.rviz')
-    # rviz_config_file = os.path.join(get_package_share_directory('ee_velocity_controller'), 'config', 'rviz_nomoveit.rviz')
-    
-    robot_description_kinematics = {"robot_description_kinematics": kinematics_yaml}
+    rviz_config_file = os.path.join(get_package_share_directory('ee_velocity_controller'), 'config', 'robot_only.rviz')
     rviz_node = Node(
         package='rviz2',
         executable='rviz2',
@@ -220,9 +133,80 @@ def launch_setup(context):
             robot_description,
             robot_description_semantic,
             robot_description_kinematics,
-            planning_scene_monitor
+            # planning_scene_monitor
         ]
     )
+
+    # Controller configuration
+    ros2_control_node = Node(
+        package="controller_manager",
+        executable="ros2_control_node",
+        parameters=[robot_description, controllers_yaml_path],
+        # remappings=[
+        #     ("robot_description", "/piper/robot_description"),
+        # ],
+        output="screen",
+    )
+    load_controllers = []
+    control_mode = LaunchConfiguration('control_mode').perform(context).lower()
+    controllers = ["joint_state_broadcaster"]
+    # Design decision: spawn only one arm command controller to avoid mixed-command behavior.
+    if control_mode == 'position':
+        controllers += ["arm_controller"]
+    else:
+        controllers += ["arm_velocity_controller"]
+    if use_gripper.lower() == 'true':
+        controllers += ["gripper_controller"]
+    for controller in controllers:
+        load_controllers += [
+            TimerAction(
+            period=0.5,
+            actions=[
+                Node(
+                    package="controller_manager",
+                    executable="spawner.py",
+                    arguments=[
+                        controller,
+                        "--controller-manager", "/controller_manager"
+                    ],
+                )
+            ]
+        )
+        ]
+
+    # Joint State Publisher Node
+    joint_state_publisher_node = Node(
+        package='joint_state_publisher',
+        executable='joint_state_publisher',
+        name='joint_state_publisher',
+        output='screen',
+        parameters=[{"publish_rate": 200}]
+    )
+    # Joint State Publisher GUI Node
+    joint_state_publisher_gui = Node(
+        package='joint_state_publisher_gui',
+        executable='joint_state_publisher_gui',
+        name='joint_state_publisher_gui',
+        output='screen'
+    )
+
+    robot_state_publisher_node = Node(
+        package='robot_state_publisher',
+        executable='robot_state_publisher',
+        name='robot_state_publisher',
+        output='screen',
+        parameters=[robot_description],
+        # namespace='piper'
+    )
+
+    static_tf = Node(
+        package="tf2_ros",
+        executable="static_transform_publisher",
+        name="static_transform_publisher",
+        # output="log",
+        arguments=["0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "world", "base_link"],
+    )
+
     servo_params = (
         ParameterBuilder("ee_velocity_controller")
         .yaml(
@@ -234,7 +218,7 @@ def launch_setup(context):
     if use_gripper.lower() == 'false':
         servo_params['moveit_servo']['ee_frame_name'] = 'link6'
     servo_demo_node = TimerAction(
-            period=2.0,
+            period=1.0,
             actions=[
                 Node(
                     package="ee_velocity_controller",
@@ -243,6 +227,7 @@ def launch_setup(context):
                     parameters=[
                         servo_params,
                         robot_description,
+                        robot_description_kinematics,
                         robot_description_semantic,
                     ],
                 )
@@ -253,16 +238,39 @@ def launch_setup(context):
         executable="velocity_pub",
         output="screen",
     )
+    # run keyboard rel_move in a separate terminal
+
+    jacobian_velctrl = Node(
+        package="ee_velocity_controller",
+        executable="jacobian_velctrl_node",
+        output="screen",
+        parameters=[
+            robot_description,
+            {
+                'base_link': LaunchConfiguration('jacobian_base_link'),
+                'ee_link': LaunchConfiguration('jacobian_ee_link'),
+                'joint_states_topic': LaunchConfiguration('jacobian_joint_states_topic'),
+                'control_rate_hz': LaunchConfiguration('control_rate_hz'),
+                'joint_limits_yaml': joint_limits_yaml_path,
+                'output_mode': LaunchConfiguration('control_mode'),
+                'joint_position_command_topic': '/arm_controller/joint_trajectory',
+                'joint_velocity_command_topic': '/arm_velocity_controller/commands',
+                'alpha': 0.8, # LPF coefficient for velocity smoothing, between [0, 1). 0 means no smoothing (raw Jacobian output), while closer to 1 means more smoothing
+                'use_damped_pseudoinverse': False,
+            },
+        ],
+    )
+
     return [
         robot_state_publisher_node,
+        # joint_state_publisher_node, # don't need this since joint_state_broadcaster publishes to /joint_states
         ros2_control_node,
         *load_controllers,
         static_tf,
-        # move_group_node,
-        rviz_node,
-        # joint_state_publisher_node,
-        servo_demo_node,
+        # servo_demo_node,
         velocity_relmove,
+        jacobian_velctrl,
+        rviz_node,
     ]
 
 def generate_launch_description():
