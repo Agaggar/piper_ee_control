@@ -125,7 +125,7 @@ int main(int argc, char** argv)
     planning_scene_monitor->startStateMonitor("/joint_states");
     planning_scene_monitor->setPlanningScenePublishingFrequency(25);
     planning_scene_monitor->startPublishingPlanningScene(planning_scene_monitor::PlanningSceneMonitor::UPDATE_SCENE,
-                                                         "/moveit_servo/publish_planning_scene");
+                                                         "/publish_planning_scene");
     planning_scene_monitor->startSceneMonitor();
     planning_scene_monitor->providePlanningSceneService();
   }
