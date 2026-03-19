@@ -24,7 +24,7 @@ public:
         setupTerminal();
 
         timer_ = create_wall_timer(
-            std::chrono::milliseconds(50), // 50 ms = 20 Hz
+            std::chrono::milliseconds(5), // 50 ms = 200 Hz
             std::bind(&KeyboardTeleop::loop, this));
 
         RCLCPP_INFO(get_logger(), "Keyboard teleop started");
@@ -80,7 +80,8 @@ private:
         char c;
 
         if (read(STDIN_FILENO, &c, 1) < 0) // read 1 byte from keyboard input
-            return; // if nothing read, loop() does noting
+            publishMove(0.0, 0.0, 0.0, 0.0); // if nothing read, publish zero command to stop the robot
+            // return; // if nothing read, loop() does noting
 
         if (c == 'q') // equivalent to ctrl C
         {
