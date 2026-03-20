@@ -149,7 +149,7 @@ def launch_setup(context):
     )
     load_controllers = []
     control_mode = LaunchConfiguration('control_mode').perform(context).lower()
-    controllers = ["joint_state_broadcaster"]
+    controllers = [] # "joint_state_broadcaster" # AVOID JS BROADCASTER
     # Design decision: spawn only one arm command controller to avoid mixed-command behavior.
     if control_mode == 'position':
         controllers += ["arm_controller"]
@@ -261,6 +261,12 @@ def launch_setup(context):
         ],
     )
 
+    custom_js_broadcaster = Node(
+        package="ee_velocity_controller",
+        executable="custom_js_broadcaster",
+        output="screen",
+    )
+
     return [
         robot_state_publisher_node,
         # joint_state_publisher_node, # don't need this since joint_state_broadcaster publishes to /joint_states
@@ -270,6 +276,7 @@ def launch_setup(context):
         # servo_demo_node,
         velocity_relmove,
         jacobian_velctrl,
+        custom_js_broadcaster,
         rviz_node,
     ]
 

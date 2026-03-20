@@ -30,7 +30,8 @@ class JacobianVelCtrlNode : public rclcpp::Node
 public:
 	struct JointLimits
 	{
-		bool has_position_limits{false};
+		std::string name;
+        bool has_position_limits{false};
 		double min_position{-std::numeric_limits<double>::infinity()};
 		double max_position{std::numeric_limits<double>::infinity()};
 		bool has_velocity_limits{false};
@@ -195,6 +196,7 @@ public:
 				}
 
 				JointLimits limits;
+                limits.name = joint_name;
 				if (joint_node["min_position"] && joint_node["max_position"]) {
 					limits.has_position_limits = true;
 					limits.min_position = joint_node["min_position"].as<double>();
@@ -259,6 +261,7 @@ private:
 
 		jacobian_solver_ = std::make_unique<KDL::ChainJntToJacSolver>(kdl_chain_);
 		chain_joint_names_ = extract_chain_joint_names(kdl_chain_);
+		std::vector<size_t> command_to_chain_index_ = {2, 1, 0, 3, 4, 5}; // hard code mapping for now since we know the joint order in the URDF and the command convention we want to use. This will need to be more flexible if we want to support different robots and/or command conventions.
 
 		if (chain_joint_names_.empty()) {
 			RCLCPP_ERROR(get_logger(), "No non-fixed joints found in selected KDL chain.");
@@ -373,7 +376,7 @@ private:
 		xdot(2) = filtered_dz_;
 		// Design decision: map RelativeMove.dtheta to end-effector angular z velocity only.
 		// Extend this to roll/pitch/yaw fields later if full orientation-rate control is needed.
-		xdot(5) = filtered_dtheta_;
+		// xdot(5) = filtered_dtheta_;
 
 		Eigen::VectorXd qdot = jacobian_pinv * xdot;
 
@@ -438,6 +441,10 @@ private:
 		for (Eigen::Index i = 0; i < q_target.size(); ++i) {
 			point.positions[static_cast<size_t>(i)] = q_target(i);
 		}
+        // for (size_t i = 0; i < command_to_chain_index_.size(); ++i) {
+		// 	const auto chain_index = static_cast<Eigen::Index>(command_to_chain_index_[i]);
+		// 	point.positions[i] = q_target(chain_index);
+		// }
 		point.time_from_start.sec = static_cast<int32_t>(position_command_time_from_start_);
 		point.time_from_start.nanosec =
 			static_cast<uint32_t>((position_command_time_from_start_ - point.time_from_start.sec) * 1e9);
@@ -518,12 +525,12 @@ private:
 		msg.layout.dim[0].stride = static_cast<size_t>(qdot.size());
 		msg.data.reserve(static_cast<size_t>(qdot.size()));
 
-		for (Eigen::Index i = 0; i < qdot.size(); ++i) {
-			msg.data.push_back(qdot(i));
+		for (const size_t chain_index : command_to_chain_index_) {
+			msg.data.push_back(qdot(static_cast<Eigen::Index>(chain_index)));
 		}
-		if (msg.data.size() > 2) {
-			msg.data[2] = -0.1;
-		}
+		// if (msg.data.size() > 2) {
+		// 	msg.data[2] = -0.1; // temp test to see robot move
+		// }
 
 		// Design decision: command is published as Float64MultiArray to integrate with
 		// a forward command velocity controller topic such as /arm_velocity_controller/commands.
@@ -592,6 +599,8 @@ private:
 	KDL::Chain kdl_chain_;
 	std::unique_ptr<KDL::ChainJntToJacSolver> jacobian_solver_;
 	std::vector<std::string> chain_joint_names_;
+	std::vector<std::string> command_joint_names_;
+	std::vector<size_t> command_to_chain_index_;
 
 	std::mutex command_mutex_;
 	std::mutex joint_state_mutex_;
