@@ -51,6 +51,7 @@ add_executable(velocity_pub src/velocity_pub.cpp)
 add_executable(keyboard_relmove src/keyboard_input.cpp)
 add_executable(get_jacobian_node src/get_jacobian.cpp)
 add_executable(jacobian_velctrl_node src/jacobian_velctrl.cpp)
+add_executable(custom_js_broadcaster src/custom_js_broadcaster.cpp)
 
 
 ament_target_dependencies(ee_velocity_node
@@ -110,6 +111,13 @@ ament_target_dependencies(jacobian_velctrl_node
   orocos_kdl
 )
 
+ament_target_dependencies(custom_js_broadcaster
+  rclcpp
+  sensor_msgs
+  std_msgs
+  trajectory_msgs
+)
+
 pluginlib_export_plugin_description_file(
   controller_interface
   config/plugin.xml)
@@ -120,6 +128,7 @@ target_link_libraries(velocity_pub Eigen3::Eigen)
 target_link_libraries(keyboard_relmove Eigen3::Eigen)
 target_link_libraries(get_jacobian_node Eigen3::Eigen)
 target_link_libraries(jacobian_velctrl_node Eigen3::Eigen yaml-cpp)
+target_link_libraries(custom_js_broadcaster Eigen3::Eigen yaml-cpp)
 
 rosidl_target_interfaces(velocity_pub
   ${PROJECT_NAME} "rosidl_typesupport_cpp")
@@ -137,7 +146,7 @@ install(DIRECTORY
   DESTINATION share/${PROJECT_NAME}
 )
 
-install(TARGETS ee_velocity_node servo_demo_node velocity_pub keyboard_relmove get_jacobian_node jacobian_velctrl_node #
+install(TARGETS ee_velocity_node servo_demo_node velocity_pub keyboard_relmove get_jacobian_node jacobian_velctrl_node custom_js_broadcaster #
   DESTINATION lib/${PROJECT_NAME})
 
 if(BUILD_TESTING)

@@ -4,6 +4,11 @@ Package that enables end effector velocity commands using ROS2 Servo
 1. `ros2 launch ee_velocity_controller piper_bringup.launch.py`
 2. In a separate terminal, `ros2 run ee_velocity_controller keyboard_relmove --ros-args -p scale_by:=0.1` (where the scale by parameter is used to increase or decrease speed)
 
+# JOINT STATE BROADCASTER ISSUE
+# TODO: try and avoid launching with joint state broadcaster
+write a custom node that can broadcast joints instead?
+What would be a minimal publisher that takes in commands that are published to joint_position_cmd_pub_ = create_publisher<trajectory_msgs::msg::JointTrajectory>(joint_position_command_topic, 10); and converts them to joint_states?
+
 #### Process for downloading moveit for foxy
 1. create new directory
 2. git clone https://github.com/moveit/moveit2.git -b $ROS_DISTRO
