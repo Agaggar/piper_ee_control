@@ -279,14 +279,17 @@ def launch_setup(context):
 
     return [
         robot_state_publisher_node,
-        # joint_state_publisher_node, # don't need this since joint_state_broadcaster publishes to /joint_states
+        ## IMPORTANT! OVERRIDE JOINT STATE BROADCASTER. Solves random joint states order issue: https://github.com/ros-controls/ros2_controllers/issues/159
+        custom_js_broadcaster,
         ros2_control_node,
         *load_controllers,
         static_tf,
+        ## Option 1: Use MoveIt Servo
         # servo_demo_node,
-        velocity_relmove,
+        # velocity_relmove,
+        ## Option 2: Use custom Jacobian velocity controller node
+        ## This is the most stable way to get motion and exposes lots of flexibility.
         jacobian_velctrl,
-        custom_js_broadcaster,
         rviz_node,
     ]
 
