@@ -1,15 +1,20 @@
-Package that enables end effector velocity commands using ROS2 Servo
+Package that enables end effector velocity commands for Piper arm for ROS2 Foxy
+
+### Important! ### 
+There is a known issue where the joint_state_broadcaster publishes joint states in a random order: https://github.com/ros-controls/ros2_controllers/issues/159. Unofrtunately, the [fix](https://github.com/ros-controls/ros2_controllers/pull/1572) does not work for Foxy. Instead, make sure to launch a custom joint states publisher.
 
 # Basic Usage
-1. `ros2 launch ee_velocity_controller piper_bringup.launch.py`
+## Suggested: Use velocity control with Jacobians and pseudoinverse
+1. `ros2 launch ee_velocity_controller jacobian_ee_control.launch.py`
+Note that there are a multiude of paramters you can pass in, inlcuding support for position control (such as what's used with MoveIt). Run `ros2 launch ee_velocity_controller jacobian_ee_control.launch.py --show-arguments` to see them.
+2. In a separate terminal, `ros2 run ee_velocity_controller keyboard_relmove --ros-args -p scale_by:=0.1` (where the scale by parameter is used to increase or decrease speed)
+(Note that rotation of the gripper, i.e., dtheta, is not supported yet.)
+
+## Alternate: Use MoveIt Servo
+1. `ros2 launch ee_velocity_controller servo_ee_control.launch.py`. Wait until MoveIt servo is done loading.
 2. In a separate terminal, `ros2 run ee_velocity_controller keyboard_relmove --ros-args -p scale_by:=0.1` (where the scale by parameter is used to increase or decrease speed)
 
-# JOINT STATE BROADCASTER ISSUE
-# TODO: try and avoid launching with joint state broadcaster
-write a custom node that can broadcast joints instead?
-What would be a minimal publisher that takes in commands that are published to joint_position_cmd_pub_ = create_publisher<trajectory_msgs::msg::JointTrajectory>(joint_position_command_topic, 10); and converts them to joint_states?
-
-#### Process for downloading moveit for foxy
+Process for downloading moveit for foxy
 1. create new directory
 2. git clone https://github.com/moveit/moveit2.git -b $ROS_DISTRO
 3. code moveit2/moveit2.repos --> change to the following:
