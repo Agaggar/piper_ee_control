@@ -80,8 +80,8 @@ private:
         char c;
 
         if (read(STDIN_FILENO, &c, 1) < 0) // read 1 byte from keyboard input
-            publishMove(0.0, 0.0, 0.0, 0.0); // if nothing read, publish zero command to stop the robot
-            // return; // if nothing read, loop() does noting
+            // publishMove(0.0, 0.0, 0.0, 0.0); // if nothing read, publish zero command to stop the robot
+            return; // if nothing read, loop() does nothing
 
         if (c == 'q') // equivalent to ctrl C
         {
