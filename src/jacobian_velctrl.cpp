@@ -261,7 +261,7 @@ private:
 
 		jacobian_solver_ = std::make_unique<KDL::ChainJntToJacSolver>(kdl_chain_);
 		chain_joint_names_ = extract_chain_joint_names(kdl_chain_);
-		std::vector<size_t> command_to_chain_index_ = {2, 1, 0, 3, 4, 5}; // hard code mapping for now since we know the joint order in the URDF and the command convention we want to use. This will need to be more flexible if we want to support different robots and/or command conventions.
+		// std::vector<size_t> command_to_chain_index_ = {2, 1, 0, 3, 4, 5}; // hard code mapping for now since we know the joint order in the URDF and the command convention we want to use. This will need to be more flexible if we want to support different robots and/or command conventions.
 
 		if (chain_joint_names_.empty()) {
 			RCLCPP_ERROR(get_logger(), "No non-fixed joints found in selected KDL chain.");
@@ -525,8 +525,8 @@ private:
 		msg.layout.dim[0].stride = static_cast<size_t>(qdot.size());
 		msg.data.reserve(static_cast<size_t>(qdot.size()));
 
-		for (const size_t chain_index : command_to_chain_index_) {
-			msg.data.push_back(qdot(static_cast<Eigen::Index>(chain_index)));
+        for (Eigen::Index i = 0; i < qdot.size(); ++i) {
+			msg.data.push_back(qdot(i));
 		}
 		// if (msg.data.size() > 2) {
 		// 	msg.data[2] = -0.1; // temp test to see robot move

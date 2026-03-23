@@ -66,7 +66,7 @@ def generate_launch_args():
     )
     control_mode_arg = DeclareLaunchArgument(
         name='control_mode',
-        default_value='position',
+        default_value='velocity',
         description='Jacobian output mode: position or velocity'
     )
     launch_args = [
@@ -265,6 +265,16 @@ def launch_setup(context):
         package="ee_velocity_controller",
         executable="custom_js_broadcaster",
         output="screen",
+        parameters=[
+            {
+                'control_mode': LaunchConfiguration('control_mode'),
+                'use_gripper': LaunchConfiguration('use_gripper'),
+            }
+        ],
+        remappings=[
+            ('~/arm_velocity_commands', '/arm_velocity_controller/commands'),
+            ('~/arm_position_commands', '/arm_controller/joint_trajectory'),
+        ],
     )
 
     return [
