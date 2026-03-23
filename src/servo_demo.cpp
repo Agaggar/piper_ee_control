@@ -111,7 +111,7 @@ int main(int argc, char** argv)
   node_ = std::make_shared<rclcpp::Node>("servo_demo_node", node_options);
 
   // Pause for RViz to come up. This is necessary in an integrated demo with a single launch file
-  rclcpp::sleep_for(std::chrono::seconds(6));
+  rclcpp::sleep_for(std::chrono::seconds(2));
 
   // Create the planning_scene_monitor. We need to pass this to Servo's constructor, and we should set it up first
   // before initializing any collision objects

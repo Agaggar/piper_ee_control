@@ -82,8 +82,8 @@ class VelPub : public rclcpp::Node
             // if (currNum == numTimesToPublish) {
             //     currNum = 0;
             // }
-            ee_cmd.twist = zero_cmd.twist; // reset ee_cmd to zero
-            velcmd_pub->publish(zero_cmd);
+            // ee_cmd.twist = zero_cmd.twist; // reset ee_cmd to zero
+            // velcmd_pub->publish(zero_cmd);
         }
 
         //// \brief subscription callback for custom message
